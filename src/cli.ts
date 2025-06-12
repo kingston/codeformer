@@ -3,17 +3,15 @@
 import { Command } from 'commander';
 
 import packageJson from '../package.json' with { type: 'json' };
-import { setupExampleCommand } from './commands/example-command.js';
+import { setupRunCommand } from './commands/run.js';
 
 const program = new Command();
 
 program
-  .name('tool-template')
-  .description(
-    "CLI tool template - replace this description with your tool's purpose",
-  )
+  .name('codeformer')
+  .description('TypeScript-based code transformation orchestrator')
   .version(packageJson.version);
 
-setupExampleCommand(program);
+setupRunCommand(program);
 
 program.parse(process.argv);

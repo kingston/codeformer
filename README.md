@@ -1,44 +1,78 @@
-# Tool Template
+# Codeformer
 
-> **Note**: This is a template repository. To adapt this code for your own tool, please:
->
-> 1. Update this README.md with your tool's description and usage instructions
-> 2. Update `package.json` with your tool's name, description, keywords, repository URL, and author
-> 3. Update the CLI name and description in `src/cli.ts` (lines 10-12)
-> 4. Uncomment the triggers in `.github/workflows/release.yml` and other workflow files
-> 5. Add your `NPM_TOKEN` secret to your GitHub repository settings for automated releases
-> 6. Update the LICENSE file if needed
-> 7. Remove this note section once you've customized the template
+Codeformer is a TypeScript-based code transformation orchestrator that enables developers to create and run composable transformations across codebases. It goes beyond traditional AST-only tools by providing a unified API for file operations, code transformations, and multi-step workflows.
 
-## Description
+## Features
 
-[Replace this section with a description of what your tool does and its main features]
+- **Composable Transformers**: Create reusable transformation modules that can invoke other transformers
+- **Unified File Operations**: Abstracted file system operations with glob pattern matching
+- **Interactive Options**: CLI prompts for missing transformer options using @inquirer/prompts
+- **Dry Run Mode**: Test transformations safely with memory-based file system mocking
+- **ESM Native**: Built for modern TypeScript/ESM workflows
+- **Extensible**: Plugin architecture for AST tools (JSCodeshift, ast-grep, etc.)
 
 ## Installation
 
-[Replace with installation instructions for your tool, e.g.:]
-
 ```bash
-npm install -g your-tool-name
+npm install -g codeformer
 # or
-pnpm add -g your-tool-name
+pnpm add -g codeformer
 ```
 
 ## Usage
 
-[Replace with usage instructions and examples for your tool, e.g.:]
+### Running Transformers
 
 ```bash
-your-tool-name [options] [arguments]
+# Run a local transformer
+codeformer run ./my-transformer.ts
+
+# Run with dry-run mode
+codeformer run --dry-run ./my-transformer.ts
+
+# Run from npm package
+codeformer run @company/transformer-name
+
+# Pass transformer options
+codeformer run ./transformer.ts --option=value
 ```
 
-### Options
+### Creating Transformers
 
-[Document your CLI options here]
+```typescript
+// my-transformer.ts
+export default {
+  name: 'my-transformer',
+  description: 'Transforms my code',
+  options: {
+    targetFramework: {
+      type: 'select',
+      description: 'Target framework',
+      options: ['react', 'vue', 'angular']
+    }
+  },
+  transform: async (ctx, options) => {
+    // Your transformation logic here
+    const files = await ctx.fs.glob('**/*.ts');
+    for (const file of files) {
+      // Transform each file
+    }
+  }
+};
+```
 
 ### Examples
 
-[Provide usage examples here]
+```bash
+# Rename files to kebab-case
+codeformer run ./transformers/rename-to-kebab.ts
+
+# Convert CommonJS to ESM
+codeformer run ./transformers/convert-to-esm.ts --dry-run
+
+# Update imports across monorepo
+codeformer run ./transformers/update-imports.ts --package=@myorg/ui
+```
 
 ## Development
 

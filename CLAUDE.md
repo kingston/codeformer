@@ -155,4 +155,41 @@ Description of the feature or change
 
 ## Custom instructions
 
-_You can place custom instructions here for the specific project._
+### Common Test Patterns
+
+#### Mocking the File System
+
+For file system operations, use memfs:
+
+```typescript
+import { vol } from 'memfs';
+
+vi.mock('node:fs');
+vi.mock('node:fs/promises');
+
+beforeEach(() => {
+  vol.reset();
+});
+
+test('should do something', () => {
+  // Arrange
+  vol.fromJSON({
+    'test-file.txt': 'test content',
+  })
+
+  // Act
+  ...
+
+  // Assert
+  const files = vol.toJSON();
+  expect(files['test-file.txt']).toBe('test content');
+});
+```
+
+If using fast-glob, make sure we pass the mocked fs adapter:
+
+```typescript
+import FastGlob from 'fast-glob';
+
+const files = await FastGlob.async(['**/*.ts'], { fs: nodeFs });
+```

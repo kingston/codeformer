@@ -1,5 +1,4 @@
 /**
  * Main entry point for programmatic usage
  */
-
-export { exampleCommand } from './commands/example-command.js';
+export const placeholder = 'placeholder';

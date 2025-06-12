@@ -3,8 +3,8 @@
 on:
   # cronjob trigger every Tuesday at 12:00 AM
   # Remove this line and uncomment the schedule line to enable this workflow
-  # schedule:
-  #   - cron: '0 0 * * 2'
+  schedule:
+    - cron: '0 0 * * 2'
   # manual trigger
   workflow_dispatch:
 jobs:
@@ -21,6 +21,6 @@ jobs:
       - name: actions-template-sync
         uses: AndreasAugustin/actions-template-sync@bcb94410a4f1dffdfe5eaabc8234c3b8e76ebc5b # v2.5.1
         with:
-          source_repo_path: ktam/tool-template
+          source_repo_path: kingston/tool-template
           upstream_branch: main
           pr_labels: template_sync
