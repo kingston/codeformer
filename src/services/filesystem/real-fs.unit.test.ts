@@ -33,6 +33,49 @@ describe('RealFileSystem', () => {
     expect(fs.cwd()).toBe(process.cwd());
   });
 
+  it('should use custom working directory', () => {
+    const customCwd = '/custom/cwd';
+    const fsWithCustomCwd = new RealFileSystem({ cwd: customCwd });
+    expect(fsWithCustomCwd.cwd()).toBe(customCwd);
+  });
+
+  it('should resolve paths relative to custom working directory', async () => {
+    const customCwd = '/custom/cwd';
+    const fsWithCustomCwd = new RealFileSystem({ cwd: customCwd });
+
+    // Create test directory structure
+    const relativePath = 'test-dir/test.txt';
+    const absolutePath = path.join(customCwd, relativePath);
+
+    // Write file using relative path
+    await fsWithCustomCwd.mkdir(path.dirname(relativePath));
+    await fsWithCustomCwd.writeFile(relativePath, 'test content');
+
+    // Verify file exists at absolute path
+    expect(await fsWithCustomCwd.exists(absolutePath)).toBe(true);
+    expect(await fsWithCustomCwd.readFile(relativePath)).toBe('test content');
+  });
+
+  it('should resolve glob patterns relative to custom working directory', async () => {
+    const customCwd = '/custom/cwd';
+    const fsWithCustomCwd = new RealFileSystem({ cwd: customCwd });
+
+    vol.fromJSON({
+      [customCwd]: null,
+    });
+
+    // Create test files
+    const files = ['test1.txt', 'test2.txt'];
+    for (const file of files) {
+      await fsWithCustomCwd.writeFile(file, 'test content');
+    }
+
+    // Find files using relative glob pattern
+    const results = await fsWithCustomCwd.glob('*.txt');
+    expect(results).toHaveLength(2);
+    expect(results).toEqual(files.map((file) => path.join(customCwd, file)));
+  });
+
   it('should create and read directory', async () => {
     const dirPath = path.join(testDir, 'test-dir');
     await fs.mkdir(dirPath);

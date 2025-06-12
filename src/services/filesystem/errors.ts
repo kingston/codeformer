@@ -10,6 +10,15 @@ export class NotFoundError extends FsError {
   }
 }
 
+/** Thrown when attempting to perform an operation on a directory. */
+export class IllegalOperationOnDirectoryError extends FsError {
+  readonly path: string;
+  constructor(path: string) {
+    super(`Illegal operation on a directory: ${path}`);
+    this.path = path;
+  }
+}
+
 /** Thrown when attempting to delete a non-empty directory. */
 export class DirectoryNotEmptyError extends FsError {
   readonly path: string;
