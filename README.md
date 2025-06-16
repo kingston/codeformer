@@ -28,14 +28,22 @@ pnpm add -g codeformer
 codeformer run ./my-transformer.ts
 
 # Run with dry-run mode
-codeformer run --dry-run ./my-transformer.ts
+codeformer run ./my-transformer.ts --dry-run
 
-# Run from npm package
-codeformer run @company/transformer-name
+# Run from a different directory
+codeformer run ./my-transformer.ts --cwd /path/to/project
 
-# Pass transformer options
-codeformer run ./transformer.ts --option=value
+# Pass transformer options (after --)
+codeformer run ./my-transformer.ts -- targetFramework=react outputDir=./dist
 ```
+
+### CLI Options
+
+The `run` command supports the following options:
+
+- `-d, --dry-run`: Run in dry-run mode without making changes to the filesystem
+- `-c, --cwd <dir>`: Specify the working directory (defaults to current directory)
+- `-- [transformer options]`: Pass options to the transformer in `key=value` format
 
 ### Creating Transformers
 
@@ -48,8 +56,8 @@ export default {
     targetFramework: {
       type: 'select',
       description: 'Target framework',
-      options: ['react', 'vue', 'angular']
-    }
+      options: ['react', 'vue', 'angular'],
+    },
   },
   transform: async (ctx, options) => {
     // Your transformation logic here
@@ -57,7 +65,7 @@ export default {
     for (const file of files) {
       // Transform each file
     }
-  }
+  },
 };
 ```
 
@@ -67,11 +75,17 @@ export default {
 # Rename files to kebab-case
 codeformer run ./transformers/rename-to-kebab.ts
 
-# Convert CommonJS to ESM
+# Convert CommonJS to ESM with dry-run
 codeformer run ./transformers/convert-to-esm.ts --dry-run
 
-# Update imports across monorepo
-codeformer run ./transformers/update-imports.ts --package=@myorg/ui
+# Update imports across monorepo with transformer options
+codeformer run ./transformers/update-imports.ts -- package=@myorg/ui newPackage=@myorg/ui-v2
+
+# Run transformer in a specific directory
+codeformer run ./transformers/fix-imports.ts --cwd ./packages/web-app
+
+# Combine multiple options
+codeformer run ./transformers/migrate-framework.ts --dry-run --cwd ./src -- framework=vue version=3
 ```
 
 ## Development
