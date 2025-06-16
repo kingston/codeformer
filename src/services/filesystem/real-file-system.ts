@@ -5,6 +5,7 @@ import path from 'node:path';
 
 import type { DirEntry, FileSystem, RmOptions } from './types.js';
 
+import { PermissionDeniedError } from './errors.js';
 import { mapFsError } from './utils.js';
 
 interface RealFileSystemOptions {
@@ -21,7 +22,13 @@ export class RealFileSystem implements FileSystem {
   }
 
   private resolvePath(filePath: string): string {
-    return path.resolve(this.cwd(), filePath);
+    const resolvedPath = path.resolve(this.cwd(), filePath);
+    if (!resolvedPath.startsWith(this.cwd())) {
+      throw new PermissionDeniedError(
+        `Cannot resolve path outside of working directory: ${resolvedPath}`,
+      );
+    }
+    return resolvedPath;
   }
 
   cwd(): string {

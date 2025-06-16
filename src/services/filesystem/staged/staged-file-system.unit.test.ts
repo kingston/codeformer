@@ -2,11 +2,11 @@ import { vol } from 'memfs';
 import path from 'node:path';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { NotFoundError } from './errors.js';
+import { NotFoundError } from '../errors.js';
 import {
   STAGED_FILE_SYSTEM_DIRECTORY_SYMBOL,
   StagedFileSystem,
-} from './staged-fs.js';
+} from './staged-file-system.js';
 
 vi.mock('node:fs');
 vi.mock('node:fs/promises');
@@ -108,7 +108,7 @@ describe('StagedFileSystem', () => {
   });
 
   describe('move operations', () => {
-    it('should move staged file', async () => {
+    it('should move staged file but not register as move operation', async () => {
       const srcPath = path.join(testDir, 'src.txt');
       const destPath = path.join(testDir, 'dest.txt');
       await stagedFs.writeFile(srcPath, 'test');
@@ -118,10 +118,26 @@ describe('StagedFileSystem', () => {
       expect(await stagedFs.exists(destPath)).toBe(true);
       expect(await stagedFs.readFile(destPath)).toBe('test');
 
-      // Check that move operation was queued
+      // Staged files should NOT create move operations since they don't exist in original filesystem
+      const moveOps = stagedFs.getMoveOperations();
+      expect(moveOps).toHaveLength(0);
+    });
+
+    it('should move original file and register as move operation', async () => {
+      const srcPath = path.join(testDir, 'existing-file.txt');
+      const destPath = path.join(testDir, 'moved-existing.txt');
+
+      await stagedFs.move(srcPath, destPath);
+
+      expect(await stagedFs.exists(destPath)).toBe(true);
+      expect(await stagedFs.readFile(destPath)).toBe('existing content');
+
+      // Original files SHOULD create move operations
       const moveOps = stagedFs.getMoveOperations();
       expect(moveOps).toHaveLength(1);
       expect(moveOps[0].type).toBe('move');
+      expect(moveOps[0].srcPath).toBe(path.resolve(testDir, 'existing-file.txt'));
+      expect(moveOps[0].destPath).toBe(path.resolve(testDir, 'moved-existing.txt'));
     });
 
     it('should move directory and nested files', async () => {
@@ -349,18 +365,28 @@ describe('StagedFileSystem', () => {
       expect(deletedPaths).toContain(filePath);
     });
 
-    it('should provide access to move operations', async () => {
-      const srcPath = path.join(testDir, 'src.txt');
-      const destPath = path.join(testDir, 'dest.txt');
+    it('should provide access to move operations for original files only', async () => {
+      // Test 1: Staged file move should NOT create move operation
+      const stagedSrcPath = path.join(testDir, 'staged-src.txt');
+      const stagedDestPath = path.join(testDir, 'staged-dest.txt');
 
-      await stagedFs.writeFile(srcPath, 'content');
-      await stagedFs.move(srcPath, destPath);
+      await stagedFs.writeFile(stagedSrcPath, 'staged content');
+      await stagedFs.move(stagedSrcPath, stagedDestPath);
 
-      const moveOps = stagedFs.getMoveOperations();
+      let moveOps = stagedFs.getMoveOperations();
+      expect(moveOps).toHaveLength(0);
+
+      // Test 2: Original file move SHOULD create move operation  
+      const originalSrcPath = path.join(testDir, 'existing-file.txt');
+      const originalDestPath = path.join(testDir, 'moved-existing.txt');
+
+      await stagedFs.move(originalSrcPath, originalDestPath);
+
+      moveOps = stagedFs.getMoveOperations();
       expect(moveOps).toHaveLength(1);
       expect(moveOps[0].type).toBe('move');
-      expect(moveOps[0].srcPath).toBe(path.resolve(testDir, 'src.txt'));
-      expect(moveOps[0].destPath).toBe(path.resolve(testDir, 'dest.txt'));
+      expect(moveOps[0].srcPath).toBe(path.resolve(testDir, 'existing-file.txt'));
+      expect(moveOps[0].destPath).toBe(path.resolve(testDir, 'moved-existing.txt'));
     });
   });
 

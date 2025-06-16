@@ -4,15 +4,38 @@ import path from 'node:path';
 
 import { handleNotFoundError } from '#src/utils/handle-not-found-error.js';
 
-import type { DirEntry, FileSystem } from './types.js';
+import type { DirEntry, FileSystem } from '../types.js';
 
-import { IllegalOperationOnDirectoryError, NotFoundError } from './errors.js';
-import { RealFileSystem } from './real-fs.js';
+import { IllegalOperationOnDirectoryError, NotFoundError } from '../errors.js';
+import { RealFileSystem } from '../real-file-system.js';
 
-interface StagedFsMoveOperation {
+/**
+ * Represents a move operation that was performed on a path that exists in the original filesystem.
+ * These operations need to be tracked so they can be applied to the real filesystem later.
+ *
+ * Note: This interface only applies to files/directories that existed in the original filesystem
+ * before staging began. Files created in the staged filesystem that are subsequently moved
+ * do not generate these operations since they don't need to be moved in the original filesystem.
+ */
+interface OriginalPathMoveOperation {
   type: 'move';
   srcPath: string;
   destPath: string;
+}
+
+/**
+ * Represents the differences between the staged filesystem and the original filesystem.
+ */
+export interface StagedFileSystemDiff {
+  /** Move operations that need to be applied to paths in the original filesystem */
+  originalPathMoveOperations: OriginalPathMoveOperation[];
+  /** Paths in the original filesystem that were deleted in the staged filesystem */
+  deletedOriginalPaths: string[];
+  /** New content created in the staged filesystem (files and directories) */
+  stagedContentMap: Map<
+    string,
+    Buffer | typeof STAGED_FILE_SYSTEM_DIRECTORY_SYMBOL
+  >;
 }
 
 interface StagedFileSystemOptions {
@@ -31,7 +54,11 @@ interface StagedFileSystemOptions {
 export const STAGED_FILE_SYSTEM_DIRECTORY_SYMBOL = Symbol('directory');
 
 export class StagedFileSystem implements FileSystem {
-  private moveOperations: StagedFsMoveOperation[] = [];
+  /**
+   * Move operations that need to be applied to the original filesystem.
+   * Only includes moves of files/directories that existed in the original filesystem.
+   */
+  private originalPathMoveOperations: OriginalPathMoveOperation[] = [];
   private readonly realFs: RealFileSystem;
 
   /**
@@ -208,30 +235,50 @@ export class StagedFileSystem implements FileSystem {
       throw new NotFoundError(path.dirname(resolvedDestPath));
     }
 
-    // Make sure we track all paths inside the source path
     const originalSrcPath = this.resolveOriginalPath(resolvedSrcPath);
-    const paths = FastGlob.sync('**', {
-      ignore: this.ignoredGlobs,
-      cwd: originalSrcPath,
-      stats: true,
-      absolute: true,
-    });
 
-    for (const pathEntry of paths) {
-      this.movedPathToOriginalPathMap.set(
-        path.join(resolvedDestPath, pathEntry.name),
-        pathEntry.path,
-      );
+    // Only register move operations for files/directories that exist in the original filesystem
+    const existsInOriginalFs = this.realFs.existsSync(originalSrcPath);
+
+    if (existsInOriginalFs) {
+      // Check if the original path is a directory
+      let isDirectory = false;
+      try {
+        this.realFs.readDirSync(originalSrcPath);
+        isDirectory = true; // If readDirSync succeeds, it's a directory
+      } catch {
+        isDirectory = false; // If it fails, it's a file
+      }
+
+      if (isDirectory) {
+        // It's a directory - track all paths inside it
+        const paths = FastGlob.sync('**', {
+          ignore: this.ignoredGlobs,
+          cwd: originalSrcPath,
+          stats: true,
+          absolute: true,
+        });
+
+        for (const pathEntry of paths) {
+          this.movedPathToOriginalPathMap.set(
+            path.join(resolvedDestPath, pathEntry.name),
+            pathEntry.path,
+          );
+        }
+      } else {
+        // It's a file - track the direct mapping
+        this.movedPathToOriginalPathMap.set(resolvedDestPath, originalSrcPath);
+      }
+
+      // Queue the move operation for later execution (only for original filesystem paths)
+      this.originalPathMoveOperations.push({
+        type: 'move',
+        srcPath: resolvedSrcPath,
+        destPath: resolvedDestPath,
+      });
     }
 
-    // Queue the move operation for later execution
-    this.moveOperations.push({
-      type: 'move',
-      srcPath: resolvedSrcPath,
-      destPath: resolvedDestPath,
-    });
-
-    // Also apply the move to the staged filesystem immediately
+    // Always apply the move to the staged filesystem immediately (for both staged and original files)
     this.executeMoveOperation(resolvedSrcPath, resolvedDestPath);
   }
 
@@ -411,8 +458,8 @@ export class StagedFileSystem implements FileSystem {
     return matchedFiles;
   }
 
-  getMoveOperations(): StagedFsMoveOperation[] {
-    return this.moveOperations;
+  getMoveOperations(): OriginalPathMoveOperation[] {
+    return this.originalPathMoveOperations;
   }
 
   getStagedContentMap(): Map<
@@ -424,5 +471,13 @@ export class StagedFileSystem implements FileSystem {
 
   getDeletedOriginalPaths(): string[] {
     return [...this.deletedOriginalPaths];
+  }
+
+  getDiff(): StagedFileSystemDiff {
+    return {
+      originalPathMoveOperations: this.originalPathMoveOperations,
+      deletedOriginalPaths: [...this.deletedOriginalPaths],
+      stagedContentMap: this.stagedPathToContentMap,
+    };
   }
 }

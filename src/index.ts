@@ -1,4 +1,1 @@
-/**
- * Main entry point for programmatic usage
- */
-export const placeholder = 'placeholder';
+export * from './services/index.js';

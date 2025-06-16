@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { NotFoundError, PermissionDeniedError } from './errors.js';
-import { RealFileSystem } from './real-fs.js';
+import { RealFileSystem } from './real-file-system.js';
 
 vi.mock('node:fs');
 vi.mock('node:fs/promises');
@@ -18,7 +18,9 @@ describe('RealFileSystem', () => {
   const testDir = `/tmp`;
 
   beforeEach(() => {
-    fs = new RealFileSystem();
+    fs = new RealFileSystem({
+      cwd: testDir,
+    });
     vol.reset();
     vol.fromJSON({
       [testDir]: null,
@@ -30,7 +32,7 @@ describe('RealFileSystem', () => {
   });
 
   it('should get current working directory', () => {
-    expect(fs.cwd()).toBe(process.cwd());
+    expect(fs.cwd()).toBe(testDir);
   });
 
   it('should use custom working directory', () => {
